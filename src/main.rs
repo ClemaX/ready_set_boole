@@ -4,7 +4,7 @@ use bitvec::prelude::*;
 type Binop = fn(u32, u32) -> u32;
 type Unop = fn(u32) -> u32;
 
-fn parser(input: &str) -> Option<bool> {
+fn eval_formula(input: &str) -> bool {
 	let mut bits = bitvec![];
 	let mut chars = input.chars().peekable();
 	let operands = chars.peeking_take_while(|c| *c == '0' || *c == '1');
@@ -31,7 +31,8 @@ fn parser(input: &str) -> Option<bool> {
 		};
 	}
 
-	bits.pop()
+	bits.pop().expect("missing operation")
+}
 }
 
 fn adder(a: u32, b: u32) -> u32 {
@@ -78,24 +79,25 @@ fn print_unop(op: Unop, a: u32, name: &str) {
 	println!("{}({}) = {}", name, a, op(a));
 }
 
-fn print_rpn(input: &str) {
-	let result = parser(input);
-
-	if let Some(value) = result {
-		println!("{} = {}", input, value);
-	}
+fn print_formula(input: &str) {
+	println!("{} = {}", input, eval_formula(input));
 }
 
 fn main() {
 	print_binop(adder, 42, 101, '+');
+
 	print_binop(multiplier, 42, 101, '*');
+
 	print_unop(gray_code, 42, "gray");
-	print_rpn("01&");
-	print_rpn("01|");
-	print_rpn("0!");
-	print_rpn("10!&");
-	print_rpn("00>");
-	print_rpn("10>");
-	print_rpn("110!&>");
-	print_rpn("110&>");
+
+	print_formula("01&");
+	print_formula("01|");
+	print_formula("0!");
+	print_formula("10!&");
+	print_formula("00>");
+	print_formula("10>");
+	print_formula("110!&>");
+	print_formula("110&>");
+	print_formula("00=");
+	print_formula("");
 }
