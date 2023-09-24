@@ -87,35 +87,31 @@ pub fn table_header<T: std::fmt::Display>(label: &str,
 
 pub fn truth_table(formula: &str) {
 	let mut chars: Vec<char> = formula.to_ascii_uppercase().chars().collect();
-	let mut variables: Vec<char> =
+	let variables: Vec<char> =
 		chars.extract_if(|c| c.is_ascii_alphabetic()).collect();
-
-	let mut unique_variables: Vec<char> = variables.clone();
-	
-	let value_count = variables.len();
-
-	let mut values = vec![0; value_count + 1];
+	let mut unique_variables: Vec<char> = variables.clone();	
 
 	unique_variables.sort();
 	unique_variables.dedup();
 
-	let mut rpn = String::from_iter(variables.iter());
-	rpn.extend(&chars);
+	let value_count = unique_variables.len();
+	
+	let mut values = vec![0; value_count + 1];
+	let mut rows = unique_variables.clone();
 
-	variables.push('=');
-	table_header(formula, &variables, None, None, None, None);
-	variables.pop();
+	rows.push('=');
 
+	table_header(formula, &rows, None, None, None, None);
 
-	for combination in 0..1 << unique_variables.len() {
-		let substituted = rpn_formula::subst_variables(&rpn, &variables,
+	for combination in 0..1 << value_count {
+		let substituted = rpn_formula::subst_variables(&formula, &unique_variables,
 			&unique_variables, &mut values, combination);
 
 		let mut separator = '─';
 		let mut left: Option<char> = None;
 		let mut middle: Option<char> = None;
 		let mut right: Option<char> = None;
-			
+
 		values[value_count] = rpn_formula::eval(&substituted) as i32;
 
 		if combination == 0 {

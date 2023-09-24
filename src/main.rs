@@ -55,6 +55,8 @@ fn exercise03() {
 	print::formula("10&1=");
 	print::formula("10|1=");
 	print::formula("101|&");
+	print::formula("10|1&");
+	print::formula("01|1&");
 
 	println!();
 }

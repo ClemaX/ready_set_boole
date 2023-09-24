@@ -4,28 +4,33 @@ use bitvec::prelude::*;
 
 pub fn eval(input: &str) -> bool {
 	let mut bits = bitvec![];
-	let mut chars: Vec<char> = input.chars().collect();
-	let operands = chars.extract_if(|c| *c == '0' || *c == '1');
+	//let chars: Vec<char> = input.chars().collect();
 
-	bits.extend(operands.map(|c| c != '0'));
-
-	for op in chars {
-		let b = bits.pop().expect("missing first operand!");
-
-		match op {
-			'!' => { bits.push(b ^ true); },
-			_ => {
-				let a = bits.pop().expect("missing second operand!");
-
-				match op {
-					'&' => { bits.push(a & b); },
-					'|' => { bits.push(a | b); },
-					'^' => { bits.push(a ^ b); },
-					'>' => { bits.push(a ^ true | b); },
-					'=' => { bits.push(a ^ true ^ b); },
-					_ => { panic!("unknown operator {:?}", op); },
-				};
+	for c in input.chars() {
+		match c {
+			'0' | '1' => {
+				bits.push(c != '0');
 			},
+			_ => {
+				let b = bits.pop().expect("missing first operand!");
+
+				match c {
+					'!' => { bits.push(b ^ true); },
+					_ => {
+						let a = bits.pop().expect("missing second operand!");
+
+						match c {
+							'&' => { bits.push(a & b); },
+							'|' => { bits.push(a | b); },
+							'^' => { bits.push(a ^ b); },
+							'>' => { bits.push(a ^ true | b); },
+							'=' => { bits.push(a ^ true ^ b); },
+							_ => { panic!("unknown operator {:?}", c); },
+						};
+					},
+				};
+			}
+			
 		};
 	}
 
