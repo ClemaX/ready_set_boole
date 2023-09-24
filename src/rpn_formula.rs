@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use bitvec::prelude::*;
 
 pub fn eval(input: &str) -> bool {
@@ -31,17 +33,24 @@ pub fn eval(input: &str) -> bool {
 }
 
 pub fn subst_variables(formula: &str, variables: &Vec<char>,
-	values: &mut Vec<i32>, mut combination: i32) -> String {
+	unique_variables: &Vec<char>, values: &mut Vec<i32>, mut combination: i32)
+	-> String {
 	let mut substituted = formula.to_string();
+	let mut variable_values: HashMap<char, i32> = HashMap::new();
 	
-	for (i, variable) in variables.iter().enumerate() {
+	for variable_name in unique_variables.iter() {
 		let variable_value = combination & 1;
 
-		values[i] = variable_value;
+		variable_values.insert(*variable_name, variable_value);
 
-		substituted = substituted.replace(&variable.to_string(),
+		substituted = substituted.replace(&variable_name.to_string(),
 			&variable_value.to_string());
+		
 		combination >>= 1;
+	}
+
+	for (i, variable_name) in variables.iter().enumerate() {
+		values[i] = *variable_values.get(variable_name).unwrap();
 	}
 
 	return substituted.to_string();

@@ -90,14 +90,14 @@ pub fn truth_table(formula: &str) {
 	let mut variables: Vec<char> =
 		chars.extract_if(|c| c.is_ascii_alphabetic()).collect();
 
-	let mut unique: Vec<char> = variables.clone();
+	let mut unique_variables: Vec<char> = variables.clone();
 	
-	let variable_count = variables.len();
+	let value_count = variables.len();
 
-	let mut values = vec![0; variable_count + 1];
+	let mut values = vec![0; value_count + 1];
 
-	unique.sort();
-	unique.dedup();
+	unique_variables.sort();
+	unique_variables.dedup();
 
 	let mut rpn = String::from_iter(variables.iter());
 	rpn.extend(&chars);
@@ -107,28 +107,27 @@ pub fn truth_table(formula: &str) {
 	variables.pop();
 
 
-	for combination in 0..1 << variable_count {
+	for combination in 0..1 << unique_variables.len() {
 		let substituted = rpn_formula::subst_variables(&rpn, &variables,
-			&mut values, combination);
+			&unique_variables, &mut values, combination);
 
 		let mut separator = '─';
 		let mut left: Option<char> = None;
 		let mut middle: Option<char> = None;
 		let mut right: Option<char> = None;
 			
-		values[variable_count] = rpn_formula::eval(&substituted) as i32;
+		values[value_count] = rpn_formula::eval(&substituted) as i32;
 
 		if combination == 0 {
 			separator = '═';
 			left = Some('╞'); middle = Some('╪'); right = Some('╡');
 		}
 
-		table_sep(separator, variable_count + 1,
-			None, left, middle, right);
+		table_sep(separator, value_count + 1, None, left, middle, right);
 
 		table_row(&values, None, None, None, None);
 	}
 
-	table_sep('─', variable_count + 1,
+	table_sep('─', value_count + 1,
 		None, Some('╰'), Some('┴'), Some('╯'));
 }
