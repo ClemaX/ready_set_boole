@@ -1,5 +1,4 @@
 #![feature(extract_if)]
-use itertools::Itertools;
 use bitvec::prelude::*;
 
 type Binop = fn(u32, u32) -> u32;
@@ -7,19 +6,24 @@ type Unop = fn(u32) -> u32;
 
 fn eval_formula(input: &str) -> bool {
 	let mut bits = bitvec![];
-
-	let mut chars = input.chars().peekable();
-	let operands = chars.peeking_take_while(|c| *c == '0' || *c == '1');
+	let mut chars: Vec<char> = input.chars().collect();
+	let operands = chars.extract_if(|c| *c == '0' || *c == '1');
 
 	bits.extend(operands.map(|c| c != '0'));
 
+	//dbg!(&bits);
+
 	for op in chars {
 		let b = bits.pop().expect("missing first operand!");
+
+		//dbg!(op);
+		//dbg!(b);
 
 		match op {
 			'!' => { bits.push(b ^ true); },
 			_ => {
 				let a = bits.pop().expect("missing second operand!");
+				//dbg!(a);
 
 				match op {
 					'&' => { bits.push(a & b); },
@@ -108,38 +112,69 @@ fn gray_code(a: u32) -> u32 {
 	a ^ a >> 1
 }
 
+fn print_statement_result<T: std::fmt::Display>(statement: &str, result: T) {
+	println!("{:<16} = {}", statement, result);
+}
+
 fn print_binop(op: Binop, a: u32, b: u32, symbol: char) {
-	println!("{} {} {} = {}", a, symbol, b, op(a, b));
+	let statement = format!("{} {} {}", a, symbol, b);
+	let result = op(a, b);
+
+	print_statement_result(&statement, result);
 }
 
 fn print_unop(op: Unop, a: u32, name: &str) {
-	println!("{}({}) = {}", name, a, op(a));
+	let statement = format!("{}({})", name, a);
+	let result = op(a);
+
+	print_statement_result(&statement, result);
 }
 
 fn print_formula(input: &str) {
-	println!("{} = {}", input, eval_formula(input));
+	
+	print_statement_result(input, eval_formula(input));
 }
 
 fn main() {
+	println!("Binary operations:");
+	println!("=================");
+	println!();
 	print_binop(adder, 42, 101, '+');
-
 	print_binop(multiplier, 42, 101, '*');
+	println!();
 
+	println!("Unary operations:");
+	println!("================");
+	println!();
 	print_unop(gray_code, 42, "gray");
+	println!();
 
+	println!("Formulas:");
+	println!("========");
+	println!();
 	print_formula("01&");
 	print_formula("01|");
 	print_formula("0!");
-	print_formula("10!&");
+	print_formula("10|1&");
+	print_formula("101|&");
 	print_formula("00>");
 	print_formula("10>");
 	print_formula("110!&>");
 	print_formula("110&>");
+	print_formula("010&>");
 	print_formula("00=");
+	print_formula("10=");
+	print_formula("10&1=");
+	print_formula("10|1=");
 	print_formula("101|&");
+	println!();
 
+	println!("Truth tables:");
+	println!("============");
+	println!();
 	print_truth_table("AB&");
 	print_truth_table("AB&C|");
 	print_truth_table("AB|C&");
 	print_truth_table("AB|B&");
+	print_truth_table("PQ>");
 }
