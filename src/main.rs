@@ -21,19 +21,13 @@ fn eval_formula(input: &str) -> bool {
 
 	bits.extend(operands.map(|c| c != '0'));
 
-	//dbg!(&bits);
-
 	for op in chars {
 		let b = bits.pop().expect("missing first operand!");
-
-		//dbg!(op);
-		//dbg!(b);
 
 		match op {
 			'!' => { bits.push(b ^ true); },
 			_ => {
 				let a = bits.pop().expect("missing second operand!");
-				//dbg!(a);
 
 				match op {
 					'&' => { bits.push(a & b); },
@@ -50,9 +44,27 @@ fn eval_formula(input: &str) -> bool {
 	bits.pop().expect("missing operation")
 }
 
+fn subst_formula_variables(formula: &str, variables: &Vec<char>,
+	values: &mut Vec<i32>, mut combination: i32) -> String {
+	let mut substituted = formula.to_string();
+	
+	for (i, variable) in variables.iter().enumerate() {
+		let variable_value = combination & 1;
+
+		values[i] = variable_value;
+
+		substituted = substituted.replace(&variable.to_string(),
+			&variable_value.to_string());
+		combination >>= 1;
+	}
+
+	return substituted.to_string();
+}
+
 fn print_truth_table(formula: &str) {
 	let mut chars: Vec<char> = formula.to_ascii_uppercase().chars().collect();
-	let mut variables: Vec<char> = chars.extract_if(|c| c.is_ascii_alphabetic()).collect();
+	let mut variables: Vec<char> =
+		chars.extract_if(|c| c.is_ascii_alphabetic()).collect();
 
 	let mut unique: Vec<char> = variables.clone();
 	
@@ -66,37 +78,29 @@ fn print_truth_table(formula: &str) {
 	let mut rpn = String::from_iter(variables.iter());
 	rpn.extend(&chars);
 
-	//dbg!(&rpn);
 	variables.push('=');
-
 	print_table::header(formula, &variables, None, None, None, None);
-
 	variables.pop();
 
 
-	for mut combination in 0..1 << variable_count {
-		let mut substituted = rpn.clone();
+	for combination in 0..1 << variable_count {
+		let substituted = subst_formula_variables(&rpn, &variables,
+				&mut values, combination);
+
+		let mut separator = '─';
+		let mut left: Option<char> = None;
+		let mut middle: Option<char> = None;
+		let mut right: Option<char> = None;
+			
+		values[variable_count] = eval_formula(&substituted) as i32;
 
 		if combination == 0 {
-			print_table::sep('═', variable_count + 1,
-				None, Some('╞'), Some('╪'), Some('╡'));
-		}
-		else {
-			print_table::sep('─', variable_count + 1,
-				None, None, None, None);
+			separator = '═';
+			left = Some('╞'); middle = Some('╪'); right = Some('╡');
 		}
 
-		for (i, variable) in unique.iter().enumerate() {
-			let variable_value = combination & 1;
-
-			values[i] = variable_value;
-
-			substituted = substituted.replace(&variable.to_string(),
-				&variable_value.to_string());
-			combination >>= 1;
-		}
-		
-		values[variable_count] = eval_formula(&substituted) as i32;
+		print_table::sep(separator, variable_count + 1,
+			None, left, middle, right);
 
 		print_table::row(&values, None, None, None, None);
 	}
