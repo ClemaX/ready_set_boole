@@ -88,7 +88,7 @@ pub fn table_header<T: std::fmt::Display>(label: &str,
 pub fn truth_table(formula: &str) {
 	let mut chars: Vec<char> = formula.to_ascii_uppercase().chars().collect();
 	let variables: Vec<char> =
-		chars.extract_if(|c| c.is_ascii_alphabetic()).collect();
+		chars.extract_if(|c| c.is_alphabetic()).collect();
 	let mut unique_variables: Vec<char> = variables.clone();	
 
 	unique_variables.sort();

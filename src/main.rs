@@ -71,10 +71,21 @@ fn exercise04() {
 	print::truth_table("PQ>");
 }
 
+fn exercise05() {
+	title!("Exercise 5 - Negation Normal Form");
+	
+	let root = rpn_formula::parse("AB&!");
+
+	rpn_formula::print_tree(&root);
+	/* rpn_formula::format_negation_normal("A!B!|"); */
+}
+
 fn main() {
 	exercise00();
 	exercise01();
 	exercise02();
 	exercise03();
 	exercise04();
+
+	exercise05();
 }
