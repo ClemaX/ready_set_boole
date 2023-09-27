@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use bitvec::prelude::*;
 
+#[derive(Debug, Clone)]
 pub struct Node {
 	pub token: char,
 	pub a: Option<Box<Node>>,
@@ -67,19 +68,20 @@ pub fn parse_operation(chars: &mut Vec<char>) -> Node {
 	root
 }
 
-fn read_operation(node: &Node) -> String {
+/*
+fn read_operation_human(node: &Node) -> String {
 	let mut operation: String = String::new();
 
 	if is_binary_operator(node.token) {
-		let first_operand = read_operation(node.a.as_ref().expect("expected first operand"));
-		let second_operand = read_operation(node.b.as_ref().expect("expected second operand"));
+		let first_operand = read_operation_human(node.a.as_ref().expect("expected first operand"));
+		let second_operand = read_operation_human(node.b.as_ref().expect("expected second operand"));
 
 		let operator = node.token;
 
 		operation += &format!("({} {} {})", first_operand, operator, second_operand);
 	}
 	else if is_unary_operator(node.token) {
-		let operand = read_operation(node.a.as_ref().expect("expected operand"));
+		let operand = read_operation_human(node.a.as_ref().expect("expected operand"));
 
 		let operator = node.token;
 
@@ -91,8 +93,42 @@ fn read_operation(node: &Node) -> String {
 
 	operation
 }
+*/
 
-pub fn print_tree(root: &Node) {
+fn read_operation(node: &Node) -> String {
+	let mut operation: String = String::new();
+
+	if is_binary_operator(node.token) {
+		let first_operand = read_operation(node.a.as_ref().expect("expected first operand"));
+		let second_operand = read_operation(node.b.as_ref().expect("expected second operand"));
+
+		let operator = node.token;
+
+		operation += &format!("{}{}{}", operator, second_operand, first_operand);
+	}
+	else if is_unary_operator(node.token) {
+		let operand = read_operation(node.a.as_ref().expect("expected operand"));
+
+		let operator = node.token;
+
+		operation += &format!("{}{}", operand, operator);
+	}
+	else {
+		operation += &format!("{}", node.token)
+	}
+
+	operation.chars().rev().collect()
+}
+
+/*
+pub fn print_human(root: &Node) {
+	let operation = read_operation_human(root);
+	
+	println!("{}", operation);
+}
+*/
+
+pub fn print(root: &Node) {
 	let operation = read_operation(root);
 	
 	println!("{}", operation);
@@ -104,6 +140,82 @@ pub fn parse(input: &str) -> Node {
 	let root = parse_operation(&mut chars);
 
 	root
+}
+
+pub struct RewriteRule {
+	pub pattern: Node,
+	pub substitute: Node,
+}
+
+fn rewrite_operands(node: &mut Node, a: &Option<Node>, b: &Option<Node>) {
+	match node.token {
+		'A' => {
+			*node = a.as_ref().unwrap().clone();
+		},
+		'B' => {
+			*node = b.as_ref().unwrap().clone();
+		},
+		_ => {
+			if node.a.is_some() {
+				rewrite_operands(node.a.as_mut().unwrap(), a, b);
+			}
+			if node.b.is_some() {
+				rewrite_operands(node.b.as_mut().unwrap(), a, b);
+			}
+		},
+	}
+}
+
+pub fn rewrite(node: &mut Node, rules: &[RewriteRule]) {
+	let mut a: Option<Node> = None;
+	let mut b: Option<Node> = None;
+
+	let mut token: char;
+
+	if node.a.is_some() {
+		rewrite(node.a.as_mut().unwrap(), rules);
+	}
+
+	if node.b.is_some() {
+		rewrite(node.b.as_mut().unwrap(), rules);
+	}
+
+	for rule in rules {
+		if node.token == rule.pattern.token {
+			let pairs = [
+				(rule.pattern.a.as_ref(), node.a.clone()),
+				(rule.pattern.b.as_ref(), node.b.clone()),
+			];
+
+			for (pattern_child, child) in pairs {
+				if pattern_child.is_some() {
+					if child.is_none() {
+						continue;
+					}
+
+					token = pattern_child.unwrap().token;
+					
+					match token {
+						'A' => {
+							a = Some(*child.unwrap());
+						}
+						'B' => {
+							b = Some(*child.unwrap());
+						}
+						_ => {
+							panic!("unknown token '{}'", token);
+						}
+					}
+				}
+			}
+
+			node.token = rule.substitute.token;
+			node.a = rule.substitute.a.clone();
+			node.b = rule.substitute.b.clone();
+
+			rewrite_operands(node, &a, &b);
+		}
+	}
 }
 
 pub fn eval(input: &str) -> bool {
