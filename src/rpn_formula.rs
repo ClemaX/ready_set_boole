@@ -68,7 +68,7 @@ pub fn parse_operation(chars: &mut Vec<char>) -> Node {
 	root
 }
 
-/*
+/* 
 fn read_operation_human(node: &Node) -> String {
 	let mut operation: String = String::new();
 
@@ -93,46 +93,55 @@ fn read_operation_human(node: &Node) -> String {
 
 	operation
 }
-*/
+ */
 
-fn read_operation(node: &Node) -> String {
+fn read_operation_polish(node: &Node) -> String {
 	let mut operation: String = String::new();
 
 	if is_binary_operator(node.token) {
-		let first_operand = read_operation(node.a.as_ref().expect("expected first operand"));
-		let second_operand = read_operation(node.b.as_ref().expect("expected second operand"));
+		let first_operand = read_operation_polish(
+			node.a.as_ref().expect("expected first operand"));
+		let second_operand = read_operation_polish(
+			node.b.as_ref().expect("expected second operand"));
 
 		let operator = node.token;
 
 		operation += &format!("{}{}{}", operator, second_operand, first_operand);
 	}
 	else if is_unary_operator(node.token) {
-		let operand = read_operation(node.a.as_ref().expect("expected operand"));
+		let operand = read_operation_polish(
+			node.a.as_ref().expect("expected operand"));
 
 		let operator = node.token;
 
-		operation += &format!("{}{}", operand, operator);
+		operation += &format!("{}{}", operator, operand);
 	}
 	else {
 		operation += &format!("{}", node.token)
 	}
 
+	operation
+}
+
+pub fn read_operation(node: &Node) -> String {
+	let operation = read_operation_polish(node);
+	
 	operation.chars().rev().collect()
 }
 
-/*
+/* 
 pub fn print_human(root: &Node) {
 	let operation = read_operation_human(root);
 	
 	println!("{}", operation);
 }
-*/
+
 
 pub fn print(root: &Node) {
 	let operation = read_operation(root);
 	
 	println!("{}", operation);
-}
+} */
 
 pub fn parse(input: &str) -> Node {
 	let mut chars: Vec<char> = input.chars().collect();
@@ -147,13 +156,17 @@ pub struct RewriteRule {
 	pub substitute: Node,
 }
 
-fn rewrite_operands(node: &mut Node, a: &Option<Node>, b: &Option<Node>) {
+fn rewrite_operands(node: &mut Node, a: &Option<Box<Node>>, b: &Option<Box<Node>>) {
 	match node.token {
-		'A' => {
-			*node = a.as_ref().unwrap().clone();
+		'\x01' => {
+			node.token = a.as_ref().unwrap().token;
+			node.a = a.as_ref().unwrap().a.clone();
+			node.b = a.as_ref().unwrap().b.clone();
 		},
-		'B' => {
-			*node = b.as_ref().unwrap().clone();
+		'\x02' => {
+			node.token = b.as_ref().unwrap().token;
+			node.a = b.as_ref().unwrap().a.clone();
+			node.b = b.as_ref().unwrap().b.clone();
 		},
 		_ => {
 			if node.a.is_some() {
@@ -166,61 +179,146 @@ fn rewrite_operands(node: &mut Node, a: &Option<Node>, b: &Option<Node>) {
 	}
 }
 
-pub fn rewrite(node: &mut Node, rules: &[RewriteRule]) {
-	let mut a: Option<Node> = None;
-	let mut b: Option<Node> = None;
+fn find_pattern_operands(pattern: &Node, node: &mut Node, a: &mut Option<Box<Node>>, b: &mut Option<Box<Node>>) -> bool {
+	let mut found = true;
 
-	let mut token: char;
+	let pairs = [
+		(pattern.a.as_ref(), node.a.clone()),
+		(pattern.b.as_ref(), node.b.clone()),
+	];
 
-	if node.a.is_some() {
-		rewrite(node.a.as_mut().unwrap(), rules);
-	}
+	let mut pattern_token: char;
 
-	if node.b.is_some() {
-		rewrite(node.b.as_mut().unwrap(), rules);
-	}
+	for (pattern_child, child) in pairs {
+		if pattern_child.is_some() {
+			if child.is_none() {
+				continue;
+			}
 
-	for rule in rules {
-		if node.token == rule.pattern.token {
-			let pairs = [
-				(rule.pattern.a.as_ref(), node.a.clone()),
-				(rule.pattern.b.as_ref(), node.b.clone()),
-			];
+			pattern_token = pattern_child.unwrap().token;
 
-			for (pattern_child, child) in pairs {
-				if pattern_child.is_some() {
-					if child.is_none() {
-						continue;
+			match pattern_token {
+				'\x01' => {
+					*a = Some(child.unwrap());
+				}
+				'\x02' => {
+					*b = Some(child.unwrap());
+				}
+				_ => {
+					if !is_operator(pattern_token) {
+						panic!("unknown token '{}'", pattern_token);
 					}
 
-					token = pattern_child.unwrap().token;
+					found = pattern_token == child.as_ref().unwrap().token;
 					
-					match token {
-						'A' => {
-							a = Some(*child.unwrap());
+					if found {
+						if pattern.a.is_some() {
+							found = find_pattern(pattern.a.as_ref().unwrap(),
+								node.a.as_mut().unwrap(), a, b, false).is_some();
 						}
-						'B' => {
-							b = Some(*child.unwrap());
-						}
-						_ => {
-							panic!("unknown token '{}'", token);
+						
+						if found && pattern.b.is_some() {
+							found = find_pattern(pattern.b.as_ref().unwrap(),
+								node.b.as_mut().unwrap(), a, b, false).is_some();
 						}
 					}
 				}
 			}
 
-			node.token = rule.substitute.token;
-			node.a = rule.substitute.a.clone();
-			node.b = rule.substitute.b.clone();
+			if !found {
+				break;
+			}
+		}
+	}
 
-			rewrite_operands(node, &a, &b);
+	found
+}
+
+fn find_pattern<'a, >(pattern: &'a Node, node: &'a mut Node,
+	a: & mut Option<Box<Node>>, b: & mut Option<Box<Node>>, recurse: bool)
+	-> Option<&'a mut Node> {
+	let mut found_node: Option<&mut Node> = None;
+
+	if node.token != pattern.token {
+		if !recurse {
+			return None;
+		}
+
+		if recurse {
+			match node.a.as_mut() {
+				Some(node_a) => {
+					found_node = find_pattern(pattern, node_a, a, b, recurse);
+			
+					match &found_node {
+						Some(_) => {},
+						None => {
+							match node.b.as_mut() {
+								Some(found_b) => {
+									found_node = find_pattern(pattern, found_b, a, b, recurse);
+								},
+								None => {},
+							}
+						},
+					}
+				},
+				None => {},
+			}
+		}
+
+		return found_node;
+	}
+
+	if !find_pattern_operands(pattern, node, a, b) {
+		return None;
+	}
+
+	Some(node)
+}
+
+pub fn rewrite_tree(node: &mut Node, rules: &[RewriteRule]) {
+	let mut a: Option<Box<Node>> = None;
+	let mut b: Option<Box<Node>> = None;
+	let mut completed: bool = false;
+
+	if node.a.is_some() {
+		rewrite_tree(node.a.as_mut().unwrap(), rules);
+	}
+
+	if node.b.is_some() {
+		rewrite_tree(node.b.as_mut().unwrap(), rules);
+	}
+
+	while !completed {
+		completed = true;
+
+		for rule in rules {
+			match find_pattern(&rule.pattern, node, &mut a, &mut b, true) {
+				Some(matching) => {
+					matching.token = rule.substitute.token;
+					matching.a = rule.substitute.a.clone();
+					matching.b = rule.substitute.b.clone();
+					
+					rewrite_operands(node, &a, &b);
+	
+					completed = false;
+				},
+				None => {},
+			}
+
 		}
 	}
 }
 
+pub fn rewrite(formula: &str, rules: &[RewriteRule]) -> String {
+	let mut root = parse(formula);
+
+	rewrite_tree(&mut root, rules);
+
+	read_operation(&root)
+}
+
 pub fn eval(input: &str) -> bool {
 	let mut bits = bitvec![];
-	//let chars: Vec<char> = input.chars().collect();
 
 	for c in input.chars() {
 		match c {

@@ -84,7 +84,6 @@ pub fn table_header<T: std::fmt::Display>(label: &str,
 	}
 }
 
-
 pub fn truth_table(formula: &str) {
 	let mut chars: Vec<char> = formula.to_ascii_uppercase().chars().collect();
 	let variables: Vec<char> =
@@ -126,4 +125,8 @@ pub fn truth_table(formula: &str) {
 
 	table_sep('─', value_count + 1,
 		None, Some('╰'), Some('┴'), Some('╯'));
+}
+
+pub fn formula_rewrite(formula: &str, rules: &[rpn_formula::RewriteRule]) {
+	println!("{:<16} = {}", formula, rpn_formula::rewrite(formula, rules));
 }
