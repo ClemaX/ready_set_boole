@@ -127,6 +127,10 @@ pub fn truth_table(formula: &str) {
 		None, Some('╰'), Some('┴'), Some('╯'));
 }
 
-pub fn formula_rewrite(formula: &str, rules: &[rpn_formula::RewriteRule]) {
+/* pub fn formula_rewrite(formula: &str, rules: &[rpn_formula::RewriteRule]) {
 	println!("{:<16} = {}", formula, rpn_formula::rewrite(formula, rules));
+} */
+
+pub fn formula_nnf(formula: &str) {
+	println!("{:<16} = {}", formula, rpn_formula::negation_normal_form(formula));
 }

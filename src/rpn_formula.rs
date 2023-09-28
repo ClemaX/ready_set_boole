@@ -9,6 +9,17 @@ pub struct Node {
 	pub b: Option<Box<Node>>,
 }
 
+const A: Node = Node {
+	token: '\x01',
+	a: None,
+	b: None,
+};
+const B: Node = Node {
+	token: '\x02',
+	a: None,
+	b: None,
+};
+
 fn is_operand(token: char) -> bool {
 	return token == '0' || token == '1' || token.is_alphabetic();
 }
@@ -315,6 +326,145 @@ pub fn rewrite(formula: &str, rules: &[RewriteRule]) -> String {
 	rewrite_tree(&mut root, rules);
 
 	read_operation(&root)
+}
+
+pub fn negation_normal_form(formula: &str) -> String {
+	let nnf_rewrite_rules: [RewriteRule; 6] = [
+		RewriteRule { // AB> -> A!B|
+			pattern: Node {
+				token: '>',
+				a: Some(Box::new(A)),
+				b: Some(Box::new(B)),
+			},
+			substitute: Node {
+				token: '|',
+				a: Some(Box::new(Node {
+					a: Some(Box::new(A)),
+					b: None,
+					token: '!',
+				})),
+				b: Some(Box::new(B)),
+			},
+		},
+		RewriteRule { // AB= -> A!B|AB!|&
+			pattern: Node {
+				token: '=',
+				a: Some(Box::new(A)),
+				b: Some(Box::new(B)),
+			},
+			substitute: Node {
+				token: '&',
+				a: Some(Box::new(Node {
+					token: '|',
+					a: Some(Box::new(Node {
+						token: '!',
+						a: Some(Box::new(A)),
+						b: None,
+					})),
+					b: Some(Box::new(B)),
+				})),
+				b: Some(Box::new(Node {
+					token: '|',
+					a: Some(Box::new(A)),
+					b: Some(Box::new(Node {
+						token: '!',
+						a: Some(Box::new(B)),
+						b: None,
+					})),
+				})),
+			},
+		},
+		RewriteRule { // AB^ -> A!B&AB!&|
+			pattern: Node {
+				token: '^',
+				a: Some(Box::new(A)),
+				b: Some(Box::new(B)),
+			},
+			substitute: Node {
+				token: '|',
+				a: Some(Box::new(Node {
+					token: '&',
+					a: Some(Box::new(Node {
+						token: '!',
+						a: Some(Box::new(A)),
+						b: None,
+					})),
+					b: Some(Box::new(B)),
+				})),
+				b: Some(Box::new(Node {
+					token: '&',
+					a: Some(Box::new(A)),
+					b: Some(Box::new(Node {
+						token: '!',
+						a: Some(Box::new(B)),
+						b: None,
+					})),
+				})),
+			},
+		},
+		RewriteRule { // AB|! -> A!B!&
+			pattern: Node {
+				token: '!',
+				a: Some(Box::new(Node {
+					token: '|',
+					a: Some(Box::new(A)),
+					b: Some(Box::new(B)),
+				})),
+				b: None,
+			},
+			substitute: Node {
+				token: '&',
+				a: Some(Box::new(Node {
+					token: '!',
+					a: Some(Box::new(A)),
+					b: None,
+				})),
+				b: Some(Box::new(Node {
+					token: '!',
+					a: Some(Box::new(B)),
+					b: None,
+				})),
+			},
+		},
+		RewriteRule { // AB&! -> A!B!|
+			pattern: Node {
+				token: '!',
+				a: Some(Box::new(Node {
+					token: '&',
+					a: Some(Box::new(A)),
+					b: Some(Box::new(B)),
+				})),
+				b: None,
+			},
+			substitute: Node {
+				token: '|',
+				a: Some(Box::new(Node {
+					token: '!',
+					a: Some(Box::new(A)),
+					b: None,
+				})),
+				b: Some(Box::new(Node {
+					token: '!',
+					a: Some(Box::new(B)),
+					b: None,
+				})),
+			},
+		},
+		RewriteRule { // A!! -> A
+			pattern: Node {
+				token: '!',
+				a: Some(Box::new(Node {
+					token: '!',
+					a: Some(Box::new(A)),
+					b: None,
+				})),
+				b: None,
+			},
+			substitute: A,
+		},
+	];
+
+	rewrite(formula, &nnf_rewrite_rules)
 }
 
 pub fn eval(input: &str) -> bool {

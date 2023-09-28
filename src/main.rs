@@ -74,10 +74,9 @@ fn exercise04() {
 fn exercise05() {
 	title!("Exercise 5 - Negation Normal Form");
 	
-	let root = rpn_formula::parse("AB&!");
-
-	rpn_formula::print_tree(&root);
-	/* rpn_formula::format_negation_normal("A!B!|"); */
+	for formula in ["AB^", "AB>", "AB=", "AB|!", "AB&!", "A!!", "AB|C&!"] {
+		print::formula_nnf(formula);
+	}
 }
 
 fn main() {
@@ -86,6 +85,5 @@ fn main() {
 	exercise02();
 	exercise03();
 	exercise04();
-
 	exercise05();
 }
