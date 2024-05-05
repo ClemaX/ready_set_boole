@@ -1,6 +1,21 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::Deref};
 
 use bitvec::prelude::*;
+use lazy_static::lazy_static;
+
+const NODE_SYM_A: char = '\x01';
+const NODE_SYM_B: char = '\x02';
+
+lazy_static! {
+  static ref REWRITE_RULES_NNF: [RewriteRule; 6] = [
+    parse_rewrite("AB>", "A!B|"),
+    parse_rewrite("AB=", "A!B|AB!|&"),
+    parse_rewrite("AB^", "A!B&AB!&|"),
+    parse_rewrite("AB|!", "A!B!&"),
+    parse_rewrite("AB&!", "A!B!|"),
+    parse_rewrite("A!!", "A"),
+	];
+}
 
 #[derive(Debug, Clone)]
 pub struct Node {
@@ -9,34 +24,23 @@ pub struct Node {
 	pub b: Option<Box<Node>>,
 }
 
-const A: Node = Node {
-	token: '\x01',
-	a: None,
-	b: None,
-};
-const B: Node = Node {
-	token: '\x02',
-	a: None,
-	b: None,
-};
-
 fn is_operand(token: char) -> bool {
-	return token == '0' || token == '1' || token.is_alphabetic();
+	token == '0' || token == '1' || token.is_alphabetic()
 }
 
 fn is_operator(token: char) -> bool {
-	return !is_operand(token);
+	!is_operand(token)
 }
 
 fn is_unary_operator(token: char) -> bool {
-	return token == '!';
+	token == '!'
 }
 
 fn is_binary_operator(token: char) -> bool {
-	return is_operator(token) && !is_unary_operator(token);
+	is_operator(token) && !is_unary_operator(token)
 }
 
-pub fn parse_operation(chars: &mut Vec<char>) -> Node {
+pub fn parse_operation(chars: &mut Vec<char>, tr_operand: Option<fn(char) -> char>) -> Node {
 	let mut root = Node { a: None, b: None, token: '\0' };
 	let mut node: Node;
 
@@ -46,7 +50,7 @@ pub fn parse_operation(chars: &mut Vec<char>) -> Node {
 		root.token = token;
 		
 		if is_unary_operator(token) {
-			node = parse_operation(chars);
+			node = parse_operation(chars, tr_operand);
 			
 			if node.token == '\0' {
 				panic!("expected operand")					
@@ -55,7 +59,7 @@ pub fn parse_operation(chars: &mut Vec<char>) -> Node {
 			root.a = Some(Box::new(node));
 		}
 		else if is_binary_operator(token) {
-			node = parse_operation(chars);
+			node = parse_operation(chars, tr_operand);
 
 			if node.token == '\0' {
 				panic!("expected second operand")					
@@ -63,7 +67,7 @@ pub fn parse_operation(chars: &mut Vec<char>) -> Node {
 
 			root.b = Some(Box::new(node));
 
-			node = parse_operation(chars);
+			node = parse_operation(chars, tr_operand);
 
 			if node.token == '\0' {
 				panic!("expected first operand")					
@@ -73,7 +77,10 @@ pub fn parse_operation(chars: &mut Vec<char>) -> Node {
 		}
 	}
 	else {
-		root.token = token;
+		root.token = match tr_operand {
+      None => token,
+      Some(tr) => tr(token)
+    };
 	}
 
 	root
@@ -154,10 +161,18 @@ pub fn print(root: &Node) {
 	println!("{}", operation);
 } */
 
+pub fn parse_tr(input: &str, transform_operand: fn(char) -> char) -> Node {
+	let mut chars: Vec<char> = input.chars().collect();
+
+	let root = parse_operation(&mut chars, Some(transform_operand));
+
+	root
+}
+
 pub fn parse(input: &str) -> Node {
 	let mut chars: Vec<char> = input.chars().collect();
 
-	let root = parse_operation(&mut chars);
+	let root = parse_operation(&mut chars, None);
 
 	root
 }
@@ -169,12 +184,12 @@ pub struct RewriteRule {
 
 fn rewrite_operands(node: &mut Node, a: &Option<Box<Node>>, b: &Option<Box<Node>>) {
 	match node.token {
-		'\x01' => {
+		NODE_SYM_A => {
 			node.token = a.as_ref().unwrap().token;
 			node.a = a.as_ref().unwrap().a.clone();
 			node.b = a.as_ref().unwrap().b.clone();
 		},
-		'\x02' => {
+		NODE_SYM_B => {
 			node.token = b.as_ref().unwrap().token;
 			node.a = b.as_ref().unwrap().a.clone();
 			node.b = b.as_ref().unwrap().b.clone();
@@ -209,10 +224,10 @@ fn find_pattern_operands(pattern: &Node, node: &mut Node, a: &mut Option<Box<Nod
 			pattern_token = pattern_child.unwrap().token;
 
 			match pattern_token {
-				'\x01' => {
+				NODE_SYM_A => {
 					*a = Some(child.unwrap());
 				}
-				'\x02' => {
+				NODE_SYM_B => {
 					*b = Some(child.unwrap());
 				}
 				_ => {
@@ -255,25 +270,23 @@ fn find_pattern<'a, >(pattern: &'a Node, node: &'a mut Node,
 			return None;
 		}
 
-		if recurse {
-			match node.a.as_mut() {
-				Some(node_a) => {
-					found_node = find_pattern(pattern, node_a, a, b, recurse);
-			
-					match &found_node {
-						Some(_) => {},
-						None => {
-							match node.b.as_mut() {
-								Some(found_b) => {
-									found_node = find_pattern(pattern, found_b, a, b, recurse);
-								},
-								None => {},
-							}
-						},
-					}
-				},
-				None => {},
-			}
+    match node.a.as_mut() {
+      Some(node_a) => {
+        found_node = find_pattern(pattern, node_a, a, b, recurse);
+    
+        match &found_node {
+          Some(_) => {},
+          None => {
+            match node.b.as_mut() {
+              Some(found_b) => {
+                found_node = find_pattern(pattern, found_b, a, b, recurse);
+              },
+              None => {},
+            }
+          },
+        }
+      },
+      None => {},
 		}
 
 		return found_node;
@@ -328,143 +341,23 @@ pub fn rewrite(formula: &str, rules: &[RewriteRule]) -> String {
 	read_operation(&root)
 }
 
-pub fn negation_normal_form(formula: &str) -> String {
-	let nnf_rewrite_rules: [RewriteRule; 6] = [
-		RewriteRule { // AB> -> A!B|
-			pattern: Node {
-				token: '>',
-				a: Some(Box::new(A)),
-				b: Some(Box::new(B)),
-			},
-			substitute: Node {
-				token: '|',
-				a: Some(Box::new(Node {
-					a: Some(Box::new(A)),
-					b: None,
-					token: '!',
-				})),
-				b: Some(Box::new(B)),
-			},
-		},
-		RewriteRule { // AB= -> A!B|AB!|&
-			pattern: Node {
-				token: '=',
-				a: Some(Box::new(A)),
-				b: Some(Box::new(B)),
-			},
-			substitute: Node {
-				token: '&',
-				a: Some(Box::new(Node {
-					token: '|',
-					a: Some(Box::new(Node {
-						token: '!',
-						a: Some(Box::new(A)),
-						b: None,
-					})),
-					b: Some(Box::new(B)),
-				})),
-				b: Some(Box::new(Node {
-					token: '|',
-					a: Some(Box::new(A)),
-					b: Some(Box::new(Node {
-						token: '!',
-						a: Some(Box::new(B)),
-						b: None,
-					})),
-				})),
-			},
-		},
-		RewriteRule { // AB^ -> A!B&AB!&|
-			pattern: Node {
-				token: '^',
-				a: Some(Box::new(A)),
-				b: Some(Box::new(B)),
-			},
-			substitute: Node {
-				token: '|',
-				a: Some(Box::new(Node {
-					token: '&',
-					a: Some(Box::new(Node {
-						token: '!',
-						a: Some(Box::new(A)),
-						b: None,
-					})),
-					b: Some(Box::new(B)),
-				})),
-				b: Some(Box::new(Node {
-					token: '&',
-					a: Some(Box::new(A)),
-					b: Some(Box::new(Node {
-						token: '!',
-						a: Some(Box::new(B)),
-						b: None,
-					})),
-				})),
-			},
-		},
-		RewriteRule { // AB|! -> A!B!&
-			pattern: Node {
-				token: '!',
-				a: Some(Box::new(Node {
-					token: '|',
-					a: Some(Box::new(A)),
-					b: Some(Box::new(B)),
-				})),
-				b: None,
-			},
-			substitute: Node {
-				token: '&',
-				a: Some(Box::new(Node {
-					token: '!',
-					a: Some(Box::new(A)),
-					b: None,
-				})),
-				b: Some(Box::new(Node {
-					token: '!',
-					a: Some(Box::new(B)),
-					b: None,
-				})),
-			},
-		},
-		RewriteRule { // AB&! -> A!B!|
-			pattern: Node {
-				token: '!',
-				a: Some(Box::new(Node {
-					token: '&',
-					a: Some(Box::new(A)),
-					b: Some(Box::new(B)),
-				})),
-				b: None,
-			},
-			substitute: Node {
-				token: '|',
-				a: Some(Box::new(Node {
-					token: '!',
-					a: Some(Box::new(A)),
-					b: None,
-				})),
-				b: Some(Box::new(Node {
-					token: '!',
-					a: Some(Box::new(B)),
-					b: None,
-				})),
-			},
-		},
-		RewriteRule { // A!! -> A
-			pattern: Node {
-				token: '!',
-				a: Some(Box::new(Node {
-					token: '!',
-					a: Some(Box::new(A)),
-					b: None,
-				})),
-				b: None,
-			},
-			substitute: A,
-		},
-	];
+pub fn symbolize_node_name(char: char) -> char {
+  match char {
+    'A' => '\x01',
+    'B' => '\x02',
+    _ => panic!("Invalid node name!")
+  }
+}
 
-	rewrite(formula, &nnf_rewrite_rules)
+pub fn parse_rewrite(pattern: &str, substitute: &str) -> RewriteRule {
+  RewriteRule { // AB> -> A!B|
+    pattern: parse_tr(pattern, symbolize_node_name),
+    substitute: parse_tr(substitute, symbolize_node_name)
+  }
+}
+
+pub fn negation_normal_form(formula: &str) -> String {
+	rewrite(formula, REWRITE_RULES_NNF.deref())
 }
 
 pub fn eval(input: &str) -> bool {
@@ -521,63 +414,5 @@ pub fn subst_variables(formula: &str, variables: &Vec<char>,
 		values[i] = *variable_values.get(variable_name).unwrap();
 	}
 
-	return substituted.to_string();
+	substituted.to_string()
 }
-
-/* 
-const OP_INVERSE: [(char, char, bool, bool); 4] = [
-	('&', '|', true, true),
-	('|', '&', true, true),
-	('^', '&', true, true), // 1 ^ 1 -> 0 : 1 & 1 -> 1, 1 ^ 0 -> 1 : 0 & 1 -> 1
-	('>', '|', true, false),
-];
-
-pub fn format_negation_normal(formula: &str) -> String {
-	let formatted: String = String::new();
-
-	let mut last_operands: Vec<char>;
-	let mut last_op: char = '\0';
-
-	let mut operands: Vec<char> = vec![];
-	let mut op: char = '\0';
-
-	for c in formula.chars() {
-		if c.is_alphanumeric() {
-			operands.push(c);
-			continue;
-		}
-
-		let b = operands.pop().expect("expected first operand!");
-
-		match c {
-			'!' => {  },
-			_ => {
-				let a = operands.pop().expect("expected second operand!");
-
-				match c {
-					'&'| '|' | '^' | '>' | '=' => {
-						op = c;
-					},
-					_ => { panic!("unknown operator {:?}", c); },
-				};
-			},
-		};
-
-		let negate = op == '!';
-		
-		if last_op != '\0' {
-			if (op == '=') {
-				
-			}
-			if negate {
-			}
-		}
-
-		last_operands = operands;
-		last_op = op;
-
-		operands = vec![];
-	}
-			
-	return formatted;
-} */

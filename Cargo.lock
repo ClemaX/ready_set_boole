@@ -130,6 +130,7 @@ dependencies = [
  "bitvec",
  "colored",
  "itertools",
+ "lazy_static",
 ]
 
 [[package]]
