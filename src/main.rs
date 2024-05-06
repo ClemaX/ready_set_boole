@@ -1,10 +1,13 @@
 #![feature(extract_if)]
+#![feature(let_chains)]
 
 use colored::Colorize;
 
 mod binop;
 mod unop;
+mod ast;
 mod rpn_formula;
+mod rpn_rewrite;
 mod print;
 
 macro_rules! title {
@@ -74,7 +77,16 @@ fn exercise04() {
 fn exercise05() {
 	title!("Exercise 5 - Negation Normal Form");
 	
-	for formula in ["AB^", "AB>", "AB=", "AB|!", "AB&!", "A!!", "AB|C&!"] {
+	for formula in [
+    "AB&!",
+    "AB|!",
+    "AB>",
+    "AB=",
+    "AB|C&!",
+    "AB^",
+    "A!!",
+    "XY&!!Y^"
+  ] {
 		print::formula_nnf(formula);
 	}
 }

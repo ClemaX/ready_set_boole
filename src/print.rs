@@ -1,4 +1,4 @@
-use crate::rpn_formula;
+use crate::{rpn_formula, rpn_rewrite};
 use crate::binop::Binop;
 use crate::unop::Unop;
 
@@ -132,5 +132,5 @@ pub fn truth_table(formula: &str) {
 } */
 
 pub fn formula_nnf(formula: &str) {
-	println!("{:<16} = {}", formula, rpn_formula::negation_normal_form(formula));
+	println!("{:<16} = {}", formula, rpn_rewrite::negation_normal_form(formula));
 }
